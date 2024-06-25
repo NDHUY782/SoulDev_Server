@@ -1,0 +1,126 @@
+res.status(400).send({ success: false, msg: error.message });
+
+
+ groupData.members.forEach(member => {
+          if (
+            groupData.managers &&
+            groupData.managers.some((manager) => manager.user_id === member.user_id)
+          ) {
+            return res.status(400).send({ success: false, msg: "This user has already been a manager" });
+          }
+        });
+
+
+const group_id = req.params.group_id;
+const group = await GroupModel.findById(group_id);
+if (group) {
+
+      // Duyệt thành nếu là người tạo nhóm
+      const requestUser_id = req.body.requestUser_id;
+      const ownData = await GroupModel.findOne({ creator_id: user_id })
+      if (ownData) {
+        if (
+          ownData.member_requests &&
+          ownData.member_requests.some((member) => 
+          member.user_id !== requestUser_id
+          // console.log(member.user_id)
+        )
+        ) {
+          return res.status(400).send({success: false,msg: "There is not any request of this user",});
+        }
+
+        if (!ownData.member_requests) ownData.member_requests = [];
+
+        ownData.member_requests = ownData.member_requests.filter((member) => member.user_id !== requestUser_id);
+
+        ownData.members.unshift({ user_id: requestUser_id });
+        
+        await ownData.save();
+        
+        return res.status(200).send({ success: true, data: ownData });
+      }
+      // Duyệt nếu là qtv
+      if (
+        group.managers &&
+        group.managers.some(
+          (manager) => manager.user_id == user_id && manager.role == "admin"
+        )
+        ) {
+          if (
+            group.member_requests &&
+            group.member_requests.some((member) => member.user_id !== requestUser_id)
+          ) {
+            return res.status(400).send({success: false,msg: "There is not any request of this user",});
+          }
+  
+          if (!group.member_requests) group.member_requests = [];
+  
+          group.member_requests = group.member_requests.filter((member) => member.user_id !== requestUser_id);
+  
+          group.members.unshift({ user_id: requestUser_id });
+          
+          await group.save();
+          
+          res.status(200).send({ success: true, data: group });
+          } else {
+            console.log(123)
+            res.status(400).send({ success: false, msg: "You cant approve this request" });
+
+            // group.member_requests.unshift({
+            //   user_id: add_mem_id
+            // })
+            // await group.save();
+            // res.status(200).send({success: true, data: group})
+          }
+
+    } else {
+      res.status(400).send({ success: false, msg: "Group is not exist" });
+    }
+//////////////
+const ownData = await GroupModel.findOne({ creator_id: user_id });
+    if (!ownData) {
+      const group_id = req.params.group_id;
+      const group = await GroupModel.findById(group_id);
+
+      if (group) {
+        if (
+          group.member_requests &&
+          group.member_requests.some((member) => member.user_id === user_id)
+        ) {
+          return res.status(400).send({
+            success: false,
+            msg: "Have already been sent request to join this group",
+          });
+        }
+        if (
+          group.members &&
+          group.members.some((member) => member.user_id === user_id)
+        ) {
+          return res.status(400).send({
+            success: false,
+            msg: "Have already been a member of this group",
+          });
+        }
+        group.member_requests.unshift({ user_id: user_id });
+        await group.save();
+
+        res.status(200).send({ success: true, data: group });
+      } else {
+        res.status(400).send({ success: false, msg: "Group id is not exist" });
+      }
+    } else {
+      res
+        .status(400)
+        .send({ success: false, msg: "You r creator of this group" });
+    }
+
+
+
+    const requestIds = data.members.map((mem) => mem.user_id.toString());
+    // const memberIds = data.member_requests.map((mem) => mem.user_id.toString());
+    // const excludeIds = memberIds.concat(requestIds);
+    // console.log("123");
+    // res.json({
+    //   data: data,
+    //   tets: excludeIds,
+    // });

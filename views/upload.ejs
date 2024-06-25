@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Image</title>
+</head>
+<body>
+    <h1>Upload Image</h1>
+    <form action="/api/post/upload" method="POST" enctype="multipart/form-data">
+        <input type="text" name="tittle" placeholder="Tittle"><br>
+        <input type="text" name="name" placeholder="Name"><br>
+        <input type="text" name="id_category" placeholder="Category ID"><br>
+        <textarea name="content" placeholder="Content"></textarea><br>
+        <input type="file" name="image" multiple><br>
+        <button type="submit">Upload</button>
+    </form>
+</body>
+</html>

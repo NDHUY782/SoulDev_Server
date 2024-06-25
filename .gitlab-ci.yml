@@ -1,0 +1,26 @@
+stages:
+  - build
+  - deploy
+
+build-souldev-server:
+  stage: build
+  tags:
+    - souldev-server
+  script:
+    - echo "Compiling the code..."
+    - sudo docker build -f ./Dockerfile -t souldev-server .
+    - echo "Compile complete."
+
+deploy-souldev-server:
+  needs: ["build-souldev-server"]
+  stage: deploy
+  tags:
+    - souldev-server
+  script:
+    - echo "Deploying server ..."
+    - sudo mkdir -p /home/docker.build/souldev-server
+    - sudo cp ./docker.build/docker-compose.yml /home/docker.build/souldev-server/docker-compose.yml
+    - cd /home/docker.build/souldev-server/
+    - sudo docker compose up -d
+    - sudo docker compose ps -a
+    - echo "Server successfully deployed!"

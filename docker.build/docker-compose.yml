@@ -1,0 +1,16 @@
+# Please modify this file in gitlab
+version: "3.2"
+
+services:
+  souldev-server:
+    container_name: souldev-server
+    image: souldev-server:latest
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - public:/var/www/html/public
+    ports:
+      - 4000:4000
+
+volumes:
+  public:

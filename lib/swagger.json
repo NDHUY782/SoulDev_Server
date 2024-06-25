@@ -1,0 +1,518 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SoulDev_API",
+    "description": "OpenAPI specification Test in GitLab",
+    "contact": {
+      "name": "Contact ",
+      "url": "https://www.facebook.com/huynguyen07080401/",
+      "email": "huynguyen07080401@gmail.com"
+    },
+    "license": {
+      "name": "proprietary"
+    },
+    "version": "1.0"
+  },
+  "schema": ["http", "https"],
+  "servers": [
+    {
+      "url": "http://localhost:4000/api",
+      "description": "Test Server"
+    },
+    {
+      "url": "http://3.26.183.207:4000/api",
+      "description": "The production API server",
+      "variables": {
+        "username": {
+          "default": "Production",
+          "description": "this value is assigned by the service provider, in this example `gigantic-server.com`"
+        },
+        "port": {
+          "enum": ["4040", "443"],
+          "default": "4040"
+        },
+        "basePath": {
+          "default": "v2"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/users/register": {
+      "post": {
+        "summary": "User Register",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "first_name": {
+                    "description": "Updated name of the pet",
+                    "type": "string"
+                  },
+                  "last_name": {
+                    "description": "Updated name of the pet",
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "email": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "password": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/users/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "password": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/users/forget-password": {
+      "post": {
+        "summary": "User Forget Password",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/users/reset-password": {
+      "put": {
+        "summary": "User Reset Password",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/users/update-profile/{id}": {
+      "post": {
+        "summary": "User Reset Password",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "first_name": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "last_name": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "email": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/users/update-avatar/{id}": {
+      "post": {
+        "summary": "User Upload Avatar",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        },
+        "consumes": ["multipart/form-data"]
+      }
+    },
+    "/users/delete-avatar/{id}": {
+      "post": {
+        "summary": "User Delete Avatar",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Users"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "id of user",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+
+    "/category/": {
+      "get": {
+        "summary": "Get All List Category",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Category"],
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/category/add-category": {
+      "post": {
+        "summary": "Add Category",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Category"],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "description": "Updated name of the pet",
+                    "type": "string"
+                  },
+                  "content": {
+                    "description": "Updated status of the pet",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+
+    "/post/": {
+      "get": {
+        "summary": "Get List Posts",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Posts"],
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/post/{id}": {
+      "get": {
+        "summary": "Get  1 Post",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Posts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "number of items to skip",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/post/user/{id}": {
+      "get": {
+        "summary": "Get Post By User",
+        "description": "Some REST operation.",
+        "security": [],
+        "tags": ["Posts"],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "number of items to skip",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "the request was successful."
+          },
+          "400": {
+            "description": "the request failed."
+          }
+        }
+      }
+    },
+    "/post/add-post/{id}": {
+      "post": {
+        "summary": "Add Post By User",
+        "description": "Add a new post.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "tags": ["Posts"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  },
+                  "tittle": {
+                    "description": "Title of the post",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Name of the user",
+                    "type": "string"
+                  },
+                  "id_category": {
+                    "description": "Category ID",
+                    "type": "string"
+                  },
+                  "content": {
+                    "description": "Content of the post",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: Post added successfully."
+          },
+          "400": {
+            "description": "Bad request: Invalid parameters."
+          },
+          "401": {
+            "description": "Unauthorized: Missing or invalid authentication token."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
