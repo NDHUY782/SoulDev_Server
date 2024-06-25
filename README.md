@@ -143,11 +143,11 @@ Once you have Node.js and bun (or pnpm) installed, you can proceed with the proj
 
 ```bash
 # Clone on method HTTPS
-git clone https://github.com/hoigreen/project-souldev.git
+git clone https://github.com/NDHUY782/SoulDev_Server.git
 
 
 # Clone on method SSH
-git clone git@github.com:hoigreen/project-souldev.git
+git clonegit@github.com:NDHUY782/SoulDev_Server.git
 ```
 
 2. Install project dependencies:
