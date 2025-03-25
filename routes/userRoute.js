@@ -53,8 +53,19 @@ router
 
 router.route("/delete-avatar/:user_id").post(auth, UserController.deleteAvatar);
 
+router.route("/current-user").get(auth, UserController.getCurrentUser);
+
 router.route("/current-user/:email").get(UserController.checkCurrentUser);
 
 router.route("/contact").post(UserController.contact);
 
+router.route("/add-user").post(auth, UserController.add_user_for_admin);
+router
+  .route("/update-user/:user_id")
+  .put(auth, UserController.update_user_admin);
+router
+  .route("/delete-user/:user_id")
+  .delete(auth, UserController.delete_user_admin);
+
+router.route("/admin-login").post(UserController.admin_login);
 module.exports = router;

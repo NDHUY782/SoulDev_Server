@@ -171,6 +171,20 @@ const checkCurrentUser = async (req, res) => {
     res.status(500).json({ success: false, msg: "Lỗi server!" });
   }
 };
+// Get current user
+const getCurrentUser = async (req, res) => {
+  try {
+    const user_id = req.user._id;
+    const user = await UserModel.findById(user_id).select(
+      "-password -token -__v",
+    );
+
+    res.status(200).json({ data: user, success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, msg: "Lỗi server!" });
+  }
+};
 
 // -----Phần Cho Mail--------------------------------------
 //gửi mail reset password
@@ -202,8 +216,6 @@ const sendResetPasswordMail = async (
     transporter.sendMail(mailOption, function (error, info) {
       if (error) {
         console.log(error);
-      } else {
-        console.log("email has been sent", info.response);
       }
     });
   } catch (error) {
@@ -241,8 +253,6 @@ const sendContactMail = async (firstname, lastname, email, token, res) => {
     transporter.sendMail(mailOption, function (error, info) {
       if (error) {
         console.log(error);
-      } else {
-        console.log("email has been sent", info.response);
       }
     });
   } catch (error) {
@@ -332,7 +342,7 @@ const register_user = async (req, res) => {
       } else {
         res
           .status(400)
-          .send({ success: false, msg: "ur registration has been fallure" });
+          .send({ success: false, msg: "ur registration has been failure" });
       }
       res.status(200).send({ success: true, data: user_data });
     }
@@ -389,6 +399,7 @@ const userLogin = async (req, res) => {
           };
           const response = {
             success: true,
+            message: "Đăng nhập thành công",
             data: userResult,
           };
           res.status(200).send(response);
@@ -463,7 +474,7 @@ const update_password = async (req, res) => {
             password: newPassword,
           },
         },
-        { new: true }
+        { new: true },
       );
 
       res.status(200).send({ success: true, msg: "Password được cập nhật" });
@@ -605,7 +616,6 @@ const deleteAvatar = async (req, res) => {
   try {
     const user_id = req.params.user_id;
     const data = await UserModel.findById({ _id: user_id });
-    console.log(data.image);
     if (data) {
       const url = data.image;
       await cloudinary.removeCloudinary(url);
@@ -641,6 +651,210 @@ const completeOnboarding = async (req, res, next) => {
   }
 };
 
+//add user admin
+const add_user_for_admin = async (req, res) => {
+  const user_id = req.user._id;
+  const user = await UserModel.findById(user_id);
+  if (!user) {
+    return res.status(400).send({ success: false, msg: "Dont have this user" });
+  }
+  if (user.role != "admin") {
+    return res
+      .status(400)
+      .send({ success: false, msg: "Dont have permission" });
+  }
+  const email = req.body.email;
+  const userData = await UserModel.findOne({ email: email });
+  const spassword = await securePassword(req.body.password);
+
+  try {
+    if (userData) {
+      res.status(400).send({ success: false, msg: "Email đã được sử dụng" });
+    } else {
+      const user = new UserModel({
+        first_name: req.body.first_name,
+        last_name: req.body.last_name,
+        email: req.body.email,
+        image: req.body.image,
+        role: req.body.role,
+        password: spassword,
+        is_verified: 1,
+      });
+
+      const registeredUser = await user.save();
+
+      if (registeredUser) {
+        const token = await createToken(registeredUser._id, email);
+        const subscriberId = registeredUser._id;
+
+        await novu.subscribers.identify(subscriberId, {
+          email: registeredUser.email,
+          firstName: registeredUser.first_name,
+          lastName: registeredUser.last_name,
+        });
+
+        const data = { ...registeredUser, token };
+
+        return res.status(200).send({
+          success: true,
+          data,
+          msg: "Thêm người dùng thành công!",
+        });
+      } else {
+        return res
+          .status(500)
+          .send({ success: false, msg: "Thêm người dùng thất bại!" });
+      }
+    }
+  } catch (error) {
+    return res.status(500).json({ error: "Lỗi server!" });
+  }
+};
+const update_user_admin = async (req, res) => {
+  const admin_id = req.user._id;
+  const admin = await UserModel.findById(admin_id);
+  if (!admin) {
+    return res.status(400).send({ success: false, msg: "Dont have this user" });
+  }
+  if (admin.role != "admin") {
+    return res
+      .status(400)
+      .send({ success: false, msg: "Dont have permission" });
+  }
+  const email = req.body.email;
+  const user_id = req.params.user_id;
+  const userData = await UserModel.findOne({ email: email });
+  const spassword = await securePassword(req.body.password);
+
+  try {
+    if (userData) {
+      res.status(400).send({ success: false, msg: "Email đã được sử dụng" });
+    } else {
+      const registeredUser = await UserModel.findByIdAndUpdate(
+        {
+          _id: user_id,
+        },
+        {
+          $set: {
+            email: email,
+            password: spassword,
+            first_name: req.body.first_name,
+            last_name: req.body.last_name,
+            image: req.body.image,
+            mobile: req.body.mobile,
+            role: req.body.role,
+          },
+        },
+        { new: true },
+      );
+      if (!registeredUser) {
+        return res.status(400).send({
+          success: false,
+          msg: "Fail",
+        });
+      }
+      res.status(200).send({
+        success: true,
+        msg: "Success",
+        data: registeredUser,
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({ error: "Lỗi server!" });
+  }
+};
+const delete_user_admin = async (req, res) => {
+  const admin_id = req.user._id;
+  const admin = await UserModel.findById(admin_id);
+  if (!admin) {
+    return res.status(400).send({ success: false, msg: "Dont have this user" });
+  }
+  if (admin.role != "admin") {
+    return res
+      .status(400)
+      .send({ success: false, msg: "Dont have permission" });
+  }
+  const user_id = req.params.user_id;
+  try {
+    const user = await UserModel.findById(user_id);
+    if (!user) {
+      return res
+        .status(400)
+        .send({ success: false, msg: "Dont have this user" });
+    }
+    const deletedUser = await UserModel.findByIdAndDelete(user_id);
+    if (!deletedUser) {
+      return res.status(400).send({ success: false, msg: "Fail" });
+    }
+    res.status(200).send({ success: true, msg: "Success" });
+  } catch (error) {
+    return res.status(500).json({ error: "Lỗi server!" });
+  }
+};
+//đăng nhập admin
+const admin_login = async (req, res) => {
+  try {
+    const email = req.body.email;
+    const password = req.body.password;
+
+    const userData = await UserModel.findOne({ email: email });
+
+    if (userData) {
+      const password_Login = await bcrypt.compare(password, userData.password);
+
+      if (password_Login) {
+        if (userData.is_verified === 0) {
+          res
+            .status(400)
+            .send({ success: false, msg: "Tài Khoản chưa được xác thực" });
+        } else {
+          if (userData.role === "admin") {
+            const tokenData = await createToken(userData._id, email);
+            const refreshTokenData = await createRefreshToken(
+              userData._id,
+              email,
+            );
+
+            const userResult = {
+              _id: userData._id,
+              email: userData.email,
+              first_name: userData.first_name,
+              last_name: userData.last_name,
+              image: userData.image,
+              mobile: userData.mobile,
+              token: tokenData,
+              refreshToken: refreshTokenData,
+              isOnboardingCompleted: userData.isOnboardingCompleted,
+            };
+            const response = {
+              success: true,
+              message: "Đăng nhập thành công",
+              data: userResult,
+            };
+            res.status(200).send(response);
+          } else {
+            return res.status(400).send({
+              success: false,
+              msg: "Dont have permision",
+            });
+          }
+        }
+      } else {
+        res.status(200).send({
+          success: false,
+          msg: "Tài khoản hoặc mật khẩu không chính xác!",
+        });
+      }
+    } else {
+      res.status(200).send({
+        success: false,
+        msg: "Tài khoản hoặc mật khẩu không chính xác!",
+      });
+    }
+  } catch (error) {
+    res.status(400).send(error);
+  }
+};
 module.exports = {
   getList,
   register_user,
@@ -656,7 +870,12 @@ module.exports = {
   updateAvatar,
   deleteAvatar,
   checkCurrentUser,
+  getCurrentUser,
   authGoogle,
   authGitHub,
   completeOnboarding,
+  add_user_for_admin,
+  update_user_admin,
+  delete_user_admin,
+  admin_login,
 };

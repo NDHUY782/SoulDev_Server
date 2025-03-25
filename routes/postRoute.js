@@ -1,15 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const bodyParser = require("body-parser");
-const passport = require("passport");
 const path = require("path");
-const session = require("express-session");
-const PostsController = require("../controllers/postController");
-const TestController = require("../controllers/backup");
-const { auth } = require("../middleware/auth");
-const { authToken } = require("../config/auth");
+const ProfileController = require("../controllers/profileController");
+
 const multer = require("multer");
 const cookieParser = require("cookie-parser");
+const { authToken } = require("../config/auth");
+const { auth } = require("../middleware/auth");
 
 router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
@@ -21,7 +19,7 @@ const storage = multer.diskStorage({
   // destination: function (req, file, cb) {
   //   cb(
   //     null,
-  //     path.join(__dirname, "../public/images/uploads/postImage"),
+  //     path.join(__dirname, "../public/images/uploads/userImage"),
   //     function (error, success) {
   //       if (error) throw error;
   //     },
@@ -37,59 +35,69 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-router.get("/upload", (req, res) => {
-  res.render("../views/upload.ejs");
-});
-router.route("/upload").post(upload.array("image"), TestController.add_post);
-
-router.route("/get-posts").get(auth, PostsController.getListPosts);
 router
-  .route("/get-users-like/:post_id")
-  .get(PostsController.getListUsersLikePost);
-// router.route("/get-listPaging/:page").get(PostsController.getListPostPaging);
-
-router.route("/random-posts").get(PostsController.get_random_post);
-
-router.route("/count-my-posts").get(auth, PostsController.countMyPosts);
+  .route("/get-profile-by-userId/:user_id")
+  .get(ProfileController.get_profile_by_user);
+router
+  .route("/get-profile-auth")
+  .get(auth, ProfileController.get_profile_by_owner);
 
 router
-  .route("/currentUser")
-  .get(auth, PostsController.getListPostsByCurrentUserId);
-router.route("/user/:user_id").get(PostsController.getListPostsByUserId);
+  .route("/get-recommend-friends")
+  .get(auth, ProfileController.listRecommendFriendsPaging);
 
-router.route("/my-posts-shared").get(auth, PostsController.getMyPostsShared);
+router.route("/get-all-friends").get(auth, ProfileController.listAllFriends);
+router.route("/get-followings").get(auth, ProfileController.listFollowingUser);
+router.route("/get-followers").get(auth, ProfileController.listFollowerUser);
+router
+  .route("/get-friends-requests")
+  .get(auth, ProfileController.listFriendRequest);
 
-router.route("/:post_id").get(PostsController.getPostById);
+router.route("/create-profile").post(auth, ProfileController.create_profile);
+router.route("/update-profile").post(auth, ProfileController.update_profile);
+router.route("/add-address").post(auth, ProfileController.add_address);
+router.route("/update-address").post(auth, ProfileController.update_address);
+router.route("/add-experience").post(auth, ProfileController.add_experience);
 
 router
-  .route("/add-post")
-  .post(auth, upload.array("image"), PostsController.add_post);
+  .route("/update-experience/:experience_id")
+  .post(ProfileController.update_experience);
 
-// router
-//   .route("/delete-post/:user_id:posts_id")
-//   .post(upload.array("image"), PostsController.delete_post);
-
-router.route("/update-post/:posts_id").post(auth, PostsController.update_post);
+router.route("/add-education").post(auth, ProfileController.add_education);
 
 router
-  .route("/update-post-image/:posts_id")
-  .post(auth, upload.array("image"), PostsController.update_post_image);
+  .route("/update-education/:edu_id")
+  .post(auth, ProfileController.update_education);
 
-router.route("/like/:posts_id").post(auth, PostsController.like_post);
+router.route("/follow").post(auth, ProfileController.follow);
 
-router.route("/unlike/:posts_id").post(auth, PostsController.unlike_post);
+router.route("/unfollow").post(auth, ProfileController.unfollow);
 
-router.route("/share/:posts_id").post(auth, PostsController.share_post);
+router.route("/add-friend").post(auth, ProfileController.add_friend);
+
+router.route("/remove-friend").post(auth, ProfileController.remove_friend);
 
 router
-  .route("/remove-share/:posts_id")
-  .post(auth, PostsController.remove_share_post);
-// router
-//   .route("/update-comment/:user_id/:posts_id/:comment_id")
-//   .post(PostsController.update_comment);
+  .route("/accept-friend-request")
+  .post(auth, ProfileController.accept_friend_request);
+router
+  .route("/remove-friend-request")
+  .post(auth, ProfileController.remove_friend_request);
+
+router
+  .route("/check-friends-online")
+  .get(auth, ProfileController.checkFriendsOnline);
+
+router.route("/set-online").post(auth, ProfileController.setOnline);
+router.route("/set-offline").post(auth, ProfileController.setOffline);
+router.route("/check-status").get(auth, ProfileController.checkUserStatus);
+router
+  .route("/check-inactivity")
+  .get(auth, ProfileController.checkUserInactivity);
+
+router.route("/my-posts-saved").get(auth, ProfileController.getMySavedPosts);
 
 //Search Profile
-router.route("/search").post(auth, PostsController.searchPosts);
-router.route("/search-all").post(auth, PostsController.searchAll);
+router.route("/search").get(auth, ProfileController.searchProfile);
 
 module.exports = router;

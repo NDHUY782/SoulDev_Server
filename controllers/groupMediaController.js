@@ -422,7 +422,7 @@ const join_group = async (req, res) => {
           payload: {
             image: userData.image,
             title: `${userData.first_name} ${userData.last_name} đã yêu cầu tham gia nhóm`,
-            url: `group-media/${group._id}`,
+            url: `/group/${group._id}`,
             urlClient: `/people/${user_id}`,
             type: "success",
           },
@@ -787,12 +787,10 @@ const add_manager = async (req, res) => {
     });
     if (groupData) {
       const manager_id = req.body.manager_id;
-      const role = req.body.role;
+      const role = "admin";
       if (
         groupData.managers &&
-        groupData.managers.some(
-          (manager) => manager.user_id.toString() === manager_id,
-        )
+        groupData.managers.some((manager) => manager.user_id === manager_id)
       ) {
         return res.status(400).send({
           success: false,
@@ -801,7 +799,7 @@ const add_manager = async (req, res) => {
       }
       groupData.managers.unshift({
         user_id: manager_id,
-        role: role,
+        role,
       });
       await groupData.save();
 
@@ -812,8 +810,7 @@ const add_manager = async (req, res) => {
         payload: {
           image: groupData.image_group,
           title: `${userData.first_name} ${userData.last_name} đã thêm bạn làm manager nhóm ${groupData.name}`,
-          url: `group-media/${group_id}`,
-          urlClient: `/people/${user_id}`,
+          url: `/group/${group_id}`,
           type: "success",
         },
       });
@@ -822,6 +819,7 @@ const add_manager = async (req, res) => {
       res.status(400).send({ success: false, msg: "Group not exist" });
     }
   } catch (error) {
+    console.log(error);
     res.status(400).send({ success: false, msg: error.message });
   }
 };

@@ -2,25 +2,17 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const path = require("path");
 const logger = require("morgan");
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
 const timezone = require("dayjs/plugin/timezone");
 const moment = require("moment-timezone");
 const socket = require("socket.io");
-const client = require("../config/connect_redis");
+// const client = require("../config/connect_redis");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
-// client.set("foo", "NguyenDucHuy");
 const ConversationModel = require("../models/ConversationSchema");
-// client.get("foo", (err, result) => {
-//   if (err) {
-//     return err;
-//   }
-//   console.log(result);
-// });
-// Set timezone for moment & dayjs
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.tz.setDefault("Asia/Bangkok");
@@ -41,7 +33,6 @@ const conversationRoute = require("../routes/conversationRoute");
 const chatGroupRoute = require("../routes/chatGroupRoute");
 const messRoute = require("../routes/messRoute");
 
-const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("../lib/swagger.json");
 const UserSchema = require("../models/UserSchema");
@@ -57,7 +48,6 @@ app.use(express.json({ limit: "4mb" }));
 app.use(helmet());
 app.use(cors());
 app.use(cookieParser());
-// app.use(logger.express);
 app.use(
   logger("dev", {
     skip: function (req) {
@@ -68,16 +58,12 @@ app.use(
     },
   }),
 );
-const swaggerOptions = {
-  swaggerDefinition: swaggerDocument,
-  apis: ["index.js", "../routes/*.js", "../middleware/*.js", "../models/*.js"],
-};
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 //root route
-app.get("/", (req, res) => {
-  res.send("App works properly!");
+app.get("/", (_, res) => {
+  res.send("SoulDev server is running");
 });
 
 app.use("/api/users/", userRoute);
@@ -104,9 +90,7 @@ app.use("/static", express.static("public"));
 
 const PORT = process.env.PORT || 4000;
 
-const server = app.listen(PORT, () =>
-  console.log(`Server running on port ${PORT}`),
-);
+const server = app.listen(PORT);
 
 const io = socket(server, {
   cors: {
@@ -168,9 +152,8 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on('TYPING', (data) => {
-    console.log(data);
-    socket.to(onlineUsers.get(data.to)).emit('TYPING', data);
+  socket.on("TYPING", (data) => {
+    socket.to(onlineUsers.get(data.to)).emit("TYPING", data);
   });
 
   socket.on("disconnect", () => {

@@ -95,9 +95,6 @@ router
   .route("/check-inactivity")
   .get(auth, ProfileController.checkUserInactivity);
 
-router
-  .route("/save-posts/:post_id")
-  .post(auth, ProfileController.savePostsForUser);
 router.route("/my-posts-saved").get(auth, ProfileController.getMySavedPosts);
 
 //Search Profile

@@ -607,18 +607,6 @@ const add_friend = async (req, res) => {
         .send({ success: false, msg: "Have already been be friend" });
     }
 
-    // if (
-    //   fromProfile.friend_requests &&
-    //   fromProfile.friend_requests.some(
-    //     (friend_request) => friend_request.user_id.toString() === toUser_id,
-    //   )
-    // ) {
-    //   return res.status(400).send({
-    //     success: false,
-    //     msg: "Have been already send a friend request to this user",
-    //   });
-    // }
-
     //kiểm tra đã có lời mời kết bạn hay chưa
     if (
       toProfile.friend_requests &&
@@ -660,8 +648,7 @@ const add_friend = async (req, res) => {
       payload: {
         image: userProfile.image,
         title: `${userProfile.first_name} ${userProfile.last_name} đã gửi lời mời kết bạn`,
-        // url: `people/${fromUser_id}`,
-        url: `people/friends-request`,
+        url: `/peoples/friends-request`,
         type: "success",
       },
     });
@@ -679,8 +666,6 @@ const accept_friend_request = async (req, res) => {
     const fromUser_id = req.user._id;
     const requestUser_id = req.body.requestUser_id;
 
-    // const data = await ProfileModel.findOne({ user_id: fromUser_id });
-    // console.log(data);
     const fromProfile = await ProfileModel.findOne({ user_id: fromUser_id });
     if (!fromProfile) {
       return res
@@ -697,29 +682,6 @@ const accept_friend_request = async (req, res) => {
         .send({ success: false, msg: "There is not profile for target user" });
     }
 
-    // //Kiểm tra xem có là bạn chưa từ người nhận
-    // if (
-    //   requestProfile.friends &&
-    //   requestProfile.friends.some(
-    //     (friend) => friend.user_id.toString() === fromUser_id,
-    //   )
-    // ) {
-    //   return res
-    //     .status(400)
-    //     .send({ success: false, msg: "Have already been a friend" });
-    // }
-
-    // // //Kiểm tra xem có là bạn chưa từ người gửi
-    // if (
-    //   fromProfile.friends &&
-    //   fromProfile.friends.some(
-    //     (friend) => friend.user_id.toString() === requestUser_id,
-    //     // console.log(friend.user_id),
-    //   )
-    // ) {
-    //   return res
-    //     .status(400)
-    //     .send({ success: false, msg: "Have already been a friend" });
     // }
 
     // Kiểm tra xem người kia đã gửi lời mời kết bạn chưa
@@ -1084,7 +1046,6 @@ const checkUserInactivity = async (req, res, next) => {
     const lastActive = await getLastActiveTime(user_id);
     const currentTime = Date.now();
     const timeSinceLastActive = currentTime - lastActive;
-    console.log(timeSinceLastActive);
     if (timeSinceLastActive > MAX_INACTIVITY_TIME * 1000) {
       // Nếu thời gian không hoạt động vượt quá ngưỡng cho phép, coi người dùng đã thoát khỏi trang web
       await setUserOffline(user_id);
@@ -1098,50 +1059,45 @@ const checkUserInactivity = async (req, res, next) => {
   }
 };
 
-//Lưu bài viết và lấy ra bài viết theo user
-const savePostsForUser = async (req, res) => {
-  const post_id = req.params.post_id;
-  const user_id = req.user._id;
-  try {
-    const profileData = await ProfileModel.findOne({ user_id: user_id });
-    // res.json(profileData);
-    if (!profileData) {
-      return res.status(400).send({ success: false, msg: "No user in system" });
-    }
-    const alreadySaved = profileData.save_posts.some(
-      (savedPost) => savedPost.post_id.toString() === post_id,
-    );
-    if (alreadySaved) {
-      return res
-        .status(400)
-        .send({ success: false, msg: "Have already saved this post" });
-    }
-    profileData.save_posts.push({
-      post_id: post_id,
-    });
-    await profileData.save();
-    res.status(200).send({ success: true, data: profileData });
-  } catch (error) {
-    res.status(400).send({ success: false });
-  }
-};
 const getMySavedPosts = async (req, res) => {
   const user_id = req.user._id;
   try {
     const data = await ProfileModel.findOne({
-      user_id: user_id,
+      user_id,
     })
-      .populate("save_posts.post_id")
       .select("save_posts");
 
     if (!data) {
       return res.status(400).send({ success: false, msg: "No user in system" });
     }
 
-    const posts = data.save_posts;
+    const postsId = data.save_posts.map((post) => post.post_id.toString());
 
-    res.status(200).send({ success: true, data: posts });
+    const posts = await PostsModel.find({
+      _id: { $in: postsId },
+    })
+      .populate("user_id")
+      .populate("likes.user_id")
+      .populate("shares.user_id")
+      .populate("page_id")
+      .populate("group_id")
+      .sort({ created: -1 });
+
+    const postsSaved = posts.map((post) => {
+      const isLiked = post.likes.some(
+        (like) => like.user_id.toString() === user_id,
+      );
+
+      return {
+        ...post._doc,
+        isLiked,
+        isSaved: true,
+      };
+    });
+
+    res.status(200).send({ success: true, data: postsSaved });
   } catch (error) {
+    console.log(error)
     res.status(400).send({ success: false });
   }
 };
@@ -1152,7 +1108,7 @@ const searchProfile = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = Number(process.env.PAGE_SIZE || 10);
 
-  let query
+  let query;
 
   if (keyword)
     query = {
@@ -1160,7 +1116,7 @@ const searchProfile = async (req, res) => {
         { first_name: { $regex: ".*" + keyword + ".*", $options: "i" } },
         { last_name: { $regex: ".*" + keyword + ".*", $options: "i" } },
       ],
-    }
+    };
 
   try {
     const data = await UserModel.find(query)
@@ -1170,7 +1126,7 @@ const searchProfile = async (req, res) => {
       .select("_id first_name last_name image")
       .exec();
 
-    const count = await UserModel.find(query).countDocuments()
+    const count = await UserModel.find(query).countDocuments();
     const totalPage = Math.ceil(count / pageSize);
 
     const response = {
@@ -1178,10 +1134,8 @@ const searchProfile = async (req, res) => {
       totalPage,
       page,
       pageSize,
-      items: data
-    }
-
-    console.log(response)
+      items: data,
+    };
 
     res.status(200).send(response);
   } catch (error) {
@@ -1216,7 +1170,6 @@ module.exports = {
   setOffline,
   checkUserStatus,
   checkUserInactivity,
-  savePostsForUser,
   getMySavedPosts,
   searchProfile,
 };

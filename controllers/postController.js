@@ -1,7 +1,3 @@
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const randormString = require("randomstring");
-const nodemailer = require("nodemailer");
 const dotenv = require("dotenv");
 const getBase64 = require("../helpers/image");
 const cloudinary = require("../config/cloudinary");
@@ -11,8 +7,112 @@ const CommentModel = require("../models/CommentSchema");
 const UserModel = require("../models/UserSchema");
 const GroupMediaModel = require("../models/GroupMediaSchema");
 const PageModel = require("../models/PageSchema");
+const ProfileModel = require("../models/ProfileSchema");
 dotenv.config();
 
+// const getListPosts = async (req, res) => {
+//   const user_id = req.user._id;
+//   const page = parseInt(req.query.page) || 1;
+//   const keyword = req.query.keyword || "";
+
+//   const pageSize = Number(process.env.PAGE_SIZE || 10);
+
+//   let query = {};
+//   if (keyword) {
+//     query = {
+//       $or: [{ text: keyword }],
+//     };
+//   }
+
+//   try {
+//     // Lấy các nhóm mà người dùng là thành viên
+//     const userGroups = await GroupMediaModel.find({
+//       "members.user_id": user_id,
+//     })
+//       .select("_id")
+//       .exec();
+//     const groupIds = userGroups.map((group) => group._id);
+
+//     // Lấy các page mà người dùng có theo dõi
+//     const userPages = await PageModel.find({
+//       "followers.user_id": user_id,
+//     })
+//       .select("_id")
+//       .exec();
+//     const pageIds = userPages.map((page) => page._id);
+
+//     const userFollowing = await ProfileModel.findOne({ user_id })
+//       .select("followings")
+//       .exec();
+//     const followingIds = userFollowing.followings.map((item) => item.user_id);
+
+//     const userSavePost = await ProfileModel.findOne({ user_id })
+//       .select("save_posts")
+//       .exec();
+//     const savePostIds = userSavePost.save_posts.map((item) =>
+//       item.post_id.toString(),
+//     );
+
+//     query = {
+//       ...query,
+//       $or: [
+//         { group_id: { $in: groupIds } },
+//         { page_id: { $in: pageIds } },
+//         { user_id: { $in: followingIds } },
+//         { user_id },
+//       ],
+//     };
+
+//     const data = await PostsModel.find(query)
+//       .populate("page_id")
+//       .populate("likes.user_id")
+//       .populate("group_id")
+//       .populate("user_id")
+//       .sort({ created: -1 })
+//       .skip((page - 1) * pageSize)
+//       .limit(pageSize)
+//       .exec();
+
+//     const postIds = data.map((post) => post._id.toString());
+
+//     //Cho save post
+//     const savePostIdSet = new Set(savePostIds);
+//     //Cho Comments
+//     const comments = await CommentModel.find({
+//       post_id: { $in: postIds },
+//     }).exec();
+
+//     // Đếm số bình luận theo post_id
+//     const commentsCountByPostId = postIds.reduce((acc, postId) => {
+//       const postComments = comments.filter(
+//         (comment) => comment.post_id.toString() === postId,
+//       );
+//       acc[postId] = {
+//         count: postComments.length,
+//       };
+//       return acc;
+//     }, {});
+//     // Đính kèm số bình luận và kiểm tra được save chưa vào mỗi bài viết
+//     const postsWithCommentCount = data.map((post) => ({
+//       ...post.toObject(),
+//       commentsCount: commentsCountByPostId[post._id.toString()]?.count || 0,
+//       isSaved: savePostIdSet.has(post._id.toString()),
+//     }));
+
+//     const rowCount = await PostsModel.find(query).countDocuments().exec();
+//     const totalPage = Math.ceil(rowCount / pageSize);
+
+//     res.status(200).json({
+//       totalPage,
+//       page,
+//       pageSize,
+//       items: postsWithCommentCount,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     res.status(400).send({ success: false });
+//   }
+// };
 const getListPosts = async (req, res) => {
   const user_id = req.user._id;
   const page = parseInt(req.query.page) || 1;
@@ -23,7 +123,7 @@ const getListPosts = async (req, res) => {
   let query = {};
   if (keyword) {
     query = {
-      $or: [{ text: keyword }],
+      $or: [{ text: { $regex: keyword, $options: "i" } }],
     };
   }
 
@@ -44,30 +144,131 @@ const getListPosts = async (req, res) => {
       .exec();
     const pageIds = userPages.map((page) => page._id);
 
-    query = {
+    const userFollowing = await ProfileModel.findOne({ user_id })
+      .select("followings")
+      .exec();
+    const followingIds = userFollowing
+      ? userFollowing.followings.map((item) => item.user_id)
+      : [];
+
+    const userSavePost = await ProfileModel.findOne({ user_id })
+      .select("save_posts")
+      .exec();
+    const savePostIds = userSavePost
+      ? userSavePost.save_posts.map((item) => item.post_id.toString())
+      : [];
+
+    // Kiểm tra xem người dùng có bất kỳ bạn bè, nhóm hoặc trang nào không
+    const hasFriendsOrGroupsOrPages =
+      followingIds.length > 0 || groupIds.length > 0 || pageIds.length > 0;
+
+    let priorityPosts = [];
+    let strangerPosts = [];
+
+    if (hasFriendsOrGroupsOrPages) {
+      // Truy vấn ưu tiên: bài viết từ bạn bè, nhóm và trang
+      const friendsQuery = {
+        ...query,
+        user_id: { $in: followingIds },
+      };
+
+      const groupsQuery = {
+        ...query,
+        group_id: { $in: groupIds },
+      };
+
+      const pagesQuery = {
+        ...query,
+        page_id: { $in: pageIds },
+      };
+
+      const userPostsQuery = {
+        ...query,
+        user_id,
+      };
+
+      // Lấy bài viết từ bạn bè trước
+      const friendsPosts = await PostsModel.find(friendsQuery)
+        .populate("page_id")
+        .populate("likes.user_id")
+        .populate("group_id")
+        .populate("user_id")
+        .sort({ created: -1 })
+        .exec();
+
+      // Tiếp theo là bài viết từ nhóm
+      const groupsPosts = await PostsModel.find(groupsQuery)
+        .populate("page_id")
+        .populate("likes.user_id")
+        .populate("group_id")
+        .populate("user_id")
+        .sort({ created: -1 })
+        .exec();
+
+      // Sau đó là bài viết từ các trang
+      const pagesPosts = await PostsModel.find(pagesQuery)
+        .populate("page_id")
+        .populate("likes.user_id")
+        .populate("group_id")
+        .populate("user_id")
+        .sort({ created: -1 })
+        .exec();
+
+      // Cuối cùng là bài viết của chính người dùng
+      const userPosts = await PostsModel.find(userPostsQuery)
+        .populate("page_id")
+        .populate("likes.user_id")
+        .populate("group_id")
+        .populate("user_id")
+        .sort({ created: -1 })
+        .exec();
+
+      // Kết hợp các bài viết ưu tiên theo thứ tự
+      priorityPosts = [
+        ...friendsPosts,
+        ...groupsPosts,
+        ...pagesPosts,
+        ...userPosts,
+      ];
+    }
+
+    // Lấy bài viết của người lạ (nếu người dùng chưa có bạn bè hoặc nhóm, hoặc để bổ sung vào cuối)
+    const strangerQuery = {
       ...query,
-      $or: [
+      $nor: [
+        { user_id: { $in: followingIds } },
         { group_id: { $in: groupIds } },
         { page_id: { $in: pageIds } },
-        { user_id: { $ne: null } },
+        { user_id },
       ],
     };
 
-    const data = await PostsModel.find(query)
+    strangerPosts = await PostsModel.find(strangerQuery)
       .populate("page_id")
       .populate("likes.user_id")
+      .populate("group_id")
       .populate("user_id")
       .sort({ created: -1 })
-      .skip((page - 1) * pageSize)
-      .limit(pageSize)
       .exec();
 
-    const postIds = data.map((post) => post._id.toString());
+    // Kết hợp bài viết ưu tiên và bài viết của người lạ
+    const combinedPosts = hasFriendsOrGroupsOrPages
+      ? [...priorityPosts, ...strangerPosts]
+      : strangerPosts;
+
+    // Phân trang sau khi kết hợp
+    const paginatedPosts = combinedPosts.slice(
+      (page - 1) * pageSize,
+      page * pageSize,
+    );
+
+    const postIds = paginatedPosts.map((post) => post._id.toString());
+
+    // Lấy bình luận và đếm số bình luận
     const comments = await CommentModel.find({
       post_id: { $in: postIds },
     }).exec();
 
-    // Đếm số bình luận theo post_id
     const commentsCountByPostId = postIds.reduce((acc, postId) => {
       const postComments = comments.filter(
         (comment) => comment.post_id.toString() === postId,
@@ -78,13 +279,17 @@ const getListPosts = async (req, res) => {
       return acc;
     }, {});
 
-    // Đính kèm số bình luận vào mỗi bài viết
-    const postsWithCommentCount = data.map((post) => ({
+    const savePostIdSet = new Set(savePostIds);
+
+    // Đính kèm số bình luận và trạng thái đã lưu vào bài viết
+    const postsWithCommentCount = paginatedPosts.map((post) => ({
       ...post.toObject(),
       commentsCount: commentsCountByPostId[post._id.toString()]?.count || 0,
+      isSaved: savePostIdSet.has(post._id.toString()),
     }));
 
-    const rowCount = await PostsModel.find(query).countDocuments().exec();
+    // Tổng số bài viết
+    const rowCount = combinedPosts.length;
     const totalPage = Math.ceil(rowCount / pageSize);
 
     res.status(200).json({
@@ -102,11 +307,22 @@ const getListPosts = async (req, res) => {
 const getPostById = async (req, res) => {
   try {
     const post_id = req.params.post_id;
+    const user_id = req.user._id;
 
     const getComments = await CommentModel.find({ post_id: post_id }).populate(
       "user_id",
       "first_name last_name image",
     );
+
+    const userSavePost = await ProfileModel.findOne({ user_id })
+      .select("save_posts")
+      .exec();
+
+    const savePostIds = userSavePost.save_posts.map((item) =>
+      item.post_id.toString(),
+    );
+    //Cho save post
+    const savePostIdSet = new Set(savePostIds);
 
     const dataByPostsId = await PostsModel.findById(post_id)
       .populate("page_id")
@@ -115,9 +331,14 @@ const getPostById = async (req, res) => {
       .populate("user_id")
       .exec();
 
+    const data = {
+      ...dataByPostsId.toObject(),
+      isSaved: savePostIdSet.has(dataByPostsId._id.toString()),
+    };
+
     return res.status(200).send({
       success: true,
-      post_data: dataByPostsId,
+      post_data: data,
       comment_data: getComments,
     });
   } catch (error) {
@@ -128,6 +349,16 @@ const getListPostsByCurrentUserId = async (req, res) => {
   try {
     const user_id = req.user._id;
 
+    const userSavePost = await ProfileModel.findOne({ user_id })
+      .select("save_posts")
+      .exec();
+
+    const savePostIds = userSavePost.save_posts.map((item) =>
+      item.post_id.toString(),
+    );
+    //Cho save post
+    const savePostIdSet = new Set(savePostIds);
+
     const dataByUserId = await PostsModel.find({ user_id })
       .populate("page_id")
       .populate("group_id")
@@ -135,7 +366,12 @@ const getListPostsByCurrentUserId = async (req, res) => {
       .populate("likes.user_id")
       .sort({ created: -1 });
 
-    res.status(200).send({ success: true, data: dataByUserId });
+    const savePosts = dataByUserId.map((post) => ({
+      ...post.toObject(),
+      isSaved: savePostIdSet.has(post._id.toString()),
+    }));
+
+    res.status(200).send({ success: true, data: savePosts });
   } catch (error) {
     res.status(400).send({ success: false });
   }
@@ -144,27 +380,53 @@ const getListPostsByUserId = async (req, res) => {
   try {
     const user_id = req.params.user_id;
 
-    const dataByUserId = await PostsModel.find({ user_id })
+    const userSavePost = await ProfileModel.findOne({ user_id })
+      .select("save_posts")
+      .exec();
+    const savePostIds = userSavePost.save_posts.map((item) =>
+      item.post_id.toString(),
+    );
+
+    const posts = await PostsModel.find({ user_id })
       .populate("page_id")
       .populate("group_id")
       .populate("user_id")
       .populate("likes.user_id")
       .sort({ created: -1 });
 
-    res.status(200).send({ success: true, data: dataByUserId });
+    const postIds = posts.map((post) => post._id.toString());
+
+    //Cho save post
+    const savePostIdSet = new Set(savePostIds);
+
+    //Cho Comments
+    const comments = await CommentModel.find({
+      post_id: { $in: postIds },
+    }).exec();
+
+    // Đếm số bình luận theo post_id
+    const commentsCountByPostId = postIds.reduce((acc, postId) => {
+      const postComments = comments.filter(
+        (comment) => comment.post_id.toString() === postId,
+      );
+      acc[postId] = {
+        count: postComments.length,
+      };
+      return acc;
+    }, {});
+
+    // Đính kèm số bình luận vào mỗi bài viết
+    const postsWithCommentCount = posts.map((post) => ({
+      ...post.toObject(),
+      commentsCount: commentsCountByPostId[post._id.toString()]?.count || 0,
+      isSaved: savePostIdSet.has(post._id.toString()),
+    }));
+
+    res.status(200).send({ success: true, data: postsWithCommentCount });
   } catch (error) {
     res.status(400).send({ success: false });
   }
 };
-
-// const getPostByPagination = async (req, res) => {
-//   try {
-//     const posts = await PostsModel.find().sort({ created: -1 });
-//     res.status(200).send({ success: true, data: posts });
-//   } catch (error) {
-//     res.status(400).send({ success: false });
-//   }
-// };
 
 //------------Thêm bài viết
 const add_post = async (req, res) => {
@@ -316,7 +578,6 @@ const like_post = async (req, res) => {
             type: "success",
           },
         });
-        console.log(userProfile.first_name);
         res.status(200).send({ success: true, data: postsData });
       }
     } else {
@@ -353,81 +614,6 @@ const unlike_post = async (req, res) => {
   }
 };
 
-// const add_comment = async (req, res) => {
-//   try {
-//     const posts_id = req.params.posts_id;
-//     const postsData = await PostsModel.findById(posts_id);
-//     if (postsData) {
-//       const user_id = req.params.user_id;
-//       const userData = await UserModel.findById(user_id);
-//       if (userData) {
-//         const newComment = {
-//           text: req.body.text,
-//           name: `${userData.first_name}${userData.last_name}`,
-//           avatar: `${userData.image}`,
-//           user_id: userData._id,
-//         };
-
-//         postsData.comments.unshift(newComment);
-//         await postsData.save();
-//         res
-//           .status(200)
-//           .send({ success: true, data: postsData.comments.user_id });
-//       } else {
-//         res.status(400).send({ success: false, msg: error.message });
-//       }
-//     } else {
-//       res.status(400).send({ success: false, msg: error.message });
-//     }
-//   } catch (error) {
-//     res.status(400).send({ success: false, msg: error.message });
-//   }
-// };
-// const delete_comment = async (req, res) => {
-//   try {
-
-//   } catch (error) {
-//     res.status(400).send({ success: false, msg: error.message });
-//   }
-// };
-
-// const update_comment = async(req,res) => {
-//   try {
-//     const user_id = req.params.user_id;
-//     const userData = UserModel.findById(user_id)
-//     const comment_id =req.params.comment_id
-
-//     const postsID = req.params.posts_id;
-//     const postsData = await PostsModel.findById(postsID);
-//     if (postsData) {
-//       if (postsData.comments.some((comment) => comment.user_id === user_id)) {
-
-//         if (postsData.comments.some((comment) => comment._id === comment_id)) {
-//           console.log(comment_id)
-//         } else {
-//           res.status(400).send({ success: false, msg: "Không tìm thấy comment" });
-//         }
-
-//       } else {
-//         res.status(400).send({success:false,msg: 'User chưa comment' })
-//       };
-//     } else {
-//       res.status(400).send({ success: false, msg: error.message });
-//     }
-
-//   } catch (error) {
-//     res.status(400).send({ success: false, msg: error.message });
-//   }
-// }
-
-//-----------Get all list share
-// const all_ListShare = async(req,res) => {
-//   try {
-
-//   } catch (error) {
-//     res.status(400).send({ success: false, msg: error.message });
-//   }
-// }
 const share_post = async (req, res) => {
   try {
     const user_id = req.user._id;
@@ -457,7 +643,6 @@ const share_post = async (req, res) => {
         to: {
           subscriberId: postsData.user_id.toString(),
         },
-        // payload: 'Có người đã like bài viết của bạn!'
         payload: {
           image: userProfile.image,
           title: `${userProfile.first_name} ${userProfile.last_name} đã share bài viết của bạn`,
@@ -543,13 +728,26 @@ const countMyPosts = async (req, res) => {
 const getMyPostsShared = async (req, res) => {
   try {
     const user_id = req.user._id;
+    const userSavePost = await ProfileModel.findOne({ user_id })
+      .select("save_posts")
+      .exec();
+    const savePostIds = userSavePost.save_posts.map((item) =>
+      item.post_id.toString(),
+    );
 
     const postsData = await PostsModel.find({ "shares.user_id": user_id })
       .populate("user_id")
       .populate("likes.user_id")
       .sort({ "shares.createdAt": -1 });
 
-    res.status(200).send({ success: true, data: postsData });
+    //Cho save post
+    const savePostIdSet = new Set(savePostIds);
+
+    const data = postsData.map((post) => ({
+      ...post.toObject(),
+      isSaved: savePostIdSet.has(post._id.toString()),
+    }));
+    res.status(200).send({ success: true, data: data });
   } catch (error) {
     res.status(400).send({ success: false });
   }
@@ -645,6 +843,85 @@ const searchAll = async (req, res) => {
     res.status(500).send(error.toString());
   }
 };
+
+//Lưu bài viết và lấy ra bài viết theo user
+const savePost = async (req, res) => {
+  const post_id = req.params.post_id;
+  const user_id = req.user._id;
+  try {
+    const profileData = await ProfileModel.findOne({ user_id });
+    if (!profileData) {
+      return res.status(400).send({ success: false, msg: "No user in system" });
+    }
+    const savePost = await PostsModel.findById(post_id);
+    if (!savePost) {
+      return res
+        .status(400)
+        .send({ success: false, msg: "No post is saved in system" });
+    }
+    const alreadySaved = profileData.save_posts.some(
+      (savedPost) => savedPost.post_id.toString() === post_id,
+    );
+    if (alreadySaved) {
+      return res
+        .status(400)
+        .send({ success: false, msg: "Have already saved this post" });
+    }
+
+    profileData.save_posts.push({ post_id: post_id, isSaved: true });
+    savePost.isSavedBy.push({ user_id: user_id });
+
+    await profileData.save();
+    await savePost.save();
+
+    res
+      .status(200)
+      .send({ success: true, profile: profileData, post: savePost });
+  } catch (error) {
+    res.status(400).send({ success: false });
+  }
+};
+const unSavePost = async (req, res) => {
+  const post_id = req.params.post_id;
+  const user_id = req.user._id;
+  try {
+    const profileData = await ProfileModel.findOne({ user_id });
+    if (!profileData) {
+      return res.status(400).send({ success: false, msg: "No user in system" });
+    }
+    const savePost = await PostsModel.findById(post_id);
+    if (!savePost) {
+      return res
+        .status(400)
+        .send({ success: false, msg: "No post is saved in system" });
+    }
+    const alreadySaved = profileData.save_posts.some(
+      (savedPost) => savedPost.post_id.toString() === post_id,
+    );
+    if (!alreadySaved) {
+      return res
+        .status(400)
+        .send({ success: false, msg: "Had not saved this post yet " });
+    }
+    if (!profileData.save_posts) profileData.save_posts = [];
+    profileData.save_posts = profileData.save_posts.filter(
+      (item) => item.post_id.toString() !== post_id,
+    );
+    if (!savePost.isSavedBy) savePost.isSavedBy = [];
+    savePost.isSavedBy = savePost.isSavedBy.filter(
+      (item) => item.user_id.toString() !== user_id,
+    );
+
+    await profileData.save();
+    await savePost.save();
+    res
+      .status(200)
+      .send({ success: true, profile: profileData, post: savePost });
+  } catch (error) {
+    res.status(400).send({ success: false });
+  }
+};
+
 module.exports = {
   getListPosts,
   get_random_post,
@@ -663,4 +940,6 @@ module.exports = {
   getListUsersLikePost,
   searchPosts,
   searchAll,
+  savePost,
+  unSavePost,
 };

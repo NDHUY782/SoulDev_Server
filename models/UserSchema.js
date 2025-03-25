@@ -2,6 +2,11 @@ const { Schema, model } = require("mongoose");
 
 const UserModel = new Schema(
   {
+    role: {
+      type: String,
+      enum: ["admin", "user"],
+      default: "user",
+    },
     image: {
       type: String,
     },
