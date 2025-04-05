@@ -675,7 +675,7 @@ const add_user_for_admin = async (req, res) => {
         first_name: req.body.first_name,
         last_name: req.body.last_name,
         email: req.body.email,
-        image: req.body.image,
+        mobile: req.body.mobile,
         role: req.body.role,
         password: spassword,
         is_verified: 1,
@@ -724,7 +724,7 @@ const update_user_admin = async (req, res) => {
   const email = req.body.email;
   const user_id = req.params.user_id;
   const userData = await UserModel.findOne({ email: email });
-  const spassword = await securePassword(req.body.password);
+  // const spassword = await securePassword(req.body.password);
 
   try {
     if (userData) {
@@ -737,10 +737,9 @@ const update_user_admin = async (req, res) => {
         {
           $set: {
             email: email,
-            password: spassword,
+            // password: spassword,
             first_name: req.body.first_name,
             last_name: req.body.last_name,
-            image: req.body.image,
             mobile: req.body.mobile,
             role: req.body.role,
           },
@@ -756,7 +755,7 @@ const update_user_admin = async (req, res) => {
       res.status(200).send({
         success: true,
         msg: "Success",
-        data: registeredUser,
+        registeredUser,
       });
     }
   } catch (error) {
@@ -798,7 +797,6 @@ const admin_login = async (req, res) => {
     const password = req.body.password;
 
     const userData = await UserModel.findOne({ email: email });
-
     if (userData) {
       const password_Login = await bcrypt.compare(password, userData.password);
 
@@ -824,6 +822,7 @@ const admin_login = async (req, res) => {
               mobile: userData.mobile,
               token: tokenData,
               refreshToken: refreshTokenData,
+              role: userData.role,
               isOnboardingCompleted: userData.isOnboardingCompleted,
             };
             const response = {
@@ -855,6 +854,93 @@ const admin_login = async (req, res) => {
     res.status(400).send(error);
   }
 };
+const get_admin_by_id = async (req, res) => {
+  try {
+    const admin_id = req.params.admin_id;
+    const admin = await UserModel.findById(admin_id)
+      .select("_id first_name last_name email role mobile")
+      .exec();
+    if (admin) {
+      res.status(200).send(admin);
+    } else {
+      res.status(404).send({
+        success: false,
+        msg: "Admin không tồn tại",
+      });
+    }
+  } catch (error) {
+    res.status(400).send(error);
+  }
+};
+const get_all_paging_admin = async (req, res) => {
+  const page = parseInt(req.params.page) || 1;
+  const keyword = req.query.keyword || "";
+
+  const pageSize = Number(process.env.PAGE_SIZE || 10);
+  let query = { role: "admin" };
+  if (keyword) {
+    query.$and = [
+      { role: "admin" },
+      {
+        $or: [
+          { first_name: { $regex: ".*" + keyword + ".*", $options: "i" } },
+          { last_name: { $regex: ".*" + keyword + ".*", $options: "i" } },
+        ],
+      },
+    ];
+  }
+  const users = await UserModel.find(query)
+    .sort({ created: -1 })
+    .skip(pageSize * (page - 1))
+    .limit(pageSize)
+    .select("_id first_name last_name email role mobile")
+    .exec();
+
+  const count = await UserModel.find(query).countDocuments();
+  const total = Math.ceil(count / pageSize);
+
+  return res.status(200).send({
+    total: count,
+    page: page,
+    pageSize: pageSize,
+    items: users,
+  });
+};
+const get_all_paging_user = async (req, res) => {
+  const page = parseInt(req.params.page) || 1;
+  const keyword = req.query.keyword || "";
+
+  const pageSize = Number(process.env.PAGE_SIZE || 10);
+  let query = { role: "user" };
+  if (keyword) {
+    query.$and = [
+      { role: "user" },
+      {
+        $or: [
+          { first_name: { $regex: ".*" + keyword + ".*", $options: "i" } },
+          { last_name: { $regex: ".*" + keyword + ".*", $options: "i" } },
+        ],
+      },
+    ];
+  }
+  const users = await UserModel.find(query)
+    .sort({ created: -1 })
+    .skip(pageSize * (page - 1))
+    .limit(pageSize)
+    .select("_id first_name last_name email role mobile")
+    .exec();
+
+  const count = await UserModel.find(query).countDocuments();
+  const total = Math.ceil(count / pageSize);
+
+  return res.status(200).send({
+    total: count,
+    page: page,
+    pageSize: pageSize,
+    items: users,
+  });
+};
+
 module.exports = {
   getList,
   register_user,
@@ -878,4 +964,7 @@ module.exports = {
   update_user_admin,
   delete_user_admin,
   admin_login,
+  get_all_paging_admin,
+  get_all_paging_user,
+  get_admin_by_id,
 };
