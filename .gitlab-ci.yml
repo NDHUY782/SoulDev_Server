@@ -1,7 +1,6 @@
 stages:
   - build
   - deploy
-
 build-souldev-server:
   stage: build
   tags:
@@ -10,7 +9,6 @@ build-souldev-server:
     - echo "Compiling the code..."
     - sudo docker build -f ./Dockerfile -t souldev-server .
     - echo "Compile complete."
-
 deploy-souldev-server:
   needs: ["build-souldev-server"]
   stage: deploy
